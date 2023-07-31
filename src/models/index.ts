@@ -3,7 +3,8 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-export * from './todo.model';
 export * from './refresh-token.model';
 export * from './user-credentials.model';
 export * from './user.model';
+export * from './product.model';
+export * from './my-user.model'

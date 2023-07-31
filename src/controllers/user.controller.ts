@@ -133,6 +133,7 @@ export class UserController {
     if (existingUser) {
       throw new DuplicateEmailError('Email already in use');
     }
+
     return this.userRepository.create(user);
   }
 
