@@ -17,6 +17,7 @@ import { model, property, repository } from '@loopback/repository';
 import {
   get,
   getModelSchemaRef,
+  HttpErrors,
   post,
   requestBody,
   SchemaObject,
@@ -24,6 +25,7 @@ import {
 import { SecurityBindings, securityId, UserProfile } from '@loopback/security';
 import { genSalt, hash } from 'bcryptjs';
 import _ from 'lodash';
+import { DuplicateEmailError } from '../errors/DuplicateEmailError';
 
 @model()
 export class NewUserRequest extends User {
@@ -44,7 +46,7 @@ const CredentialsSchema: SchemaObject = {
     },
     password: {
       type: 'string',
-      minLength: 8,
+      minLength: 6,
     },
   },
 };
@@ -122,6 +124,18 @@ export class UserController {
     return currentUserProfile[securityId];
   }
 
+  async createUser(user: User): Promise<User> {
+
+    const existingUser = await this.userRepository.findOne({
+      where: { email: user.email }
+    });
+
+    if (existingUser) {
+      throw new DuplicateEmailError('Email already in use');
+    }
+    return this.userRepository.create(user);
+  }
+
   @post('/signup', {
     responses: {
       '200': {
@@ -148,13 +162,24 @@ export class UserController {
     })
     newUserRequest: NewUserRequest,
   ): Promise<User> {
-    const password = await hash(newUserRequest.password, await genSalt());
-    const savedUser = await this.userRepository.create(
-      _.omit(newUserRequest, 'password'),
-    );
+    try {
+      const password = await hash(newUserRequest.password, await genSalt());
+      // const savedUser = await this.userRepository.create(
+      //   _.omit(newUserRequest, 'password'),
+      // );
+      const savedUser = await this.createUser(
+        _.omit(newUserRequest, 'password') as User,
+      )
 
-    await this.userRepository.userCredentials(savedUser.id).create({ password });
+      await this.userRepository.userCredentials(savedUser.id).create({ password });
 
-    return savedUser;
+      return savedUser;
+    } catch (err) {
+      // error handling
+      if (err instanceof DuplicateEmailError) {
+        throw new HttpErrors.Conflict('Email already in use')
+      }
+      throw err;
+    }
   }
 }
